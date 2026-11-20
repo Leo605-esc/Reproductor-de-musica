@@ -41,6 +41,10 @@ input[type=range]{padding:0;accent-color:var(--g);border:0;background:none}
 .c .pp{background:var(--g);color:#000;border-radius:50%;width:64px;height:64px;font-size:26px}
 .on2{color:var(--g)}
 #to{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--g);color:#000;padding:8px 14px;border-radius:20px;font-size:14px;z-index:20}
+#dl{position:fixed;inset:0;background:var(--bg);z-index:12;padding:calc(env(safe-area-inset-top) + 14px) 14px 20px;overflow:auto}
+#cf{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:15;display:grid;place-items:center;padding:20px}
+#cf div{background:var(--card);border:1px solid var(--g);border-radius:16px;padding:20px;max-width:340px;display:grid;gap:16px}
+#cf .k{display:flex;gap:10px}#cf .k button{flex:1}
 </style></head><body>
 <div id="login"><h1>Reproductor de música</h1>
 <input id="nm" placeholder="Tu nombre corto" autocapitalize="none" autocomplete="username">
@@ -57,7 +61,10 @@ input[type=range]{padding:0;accent-color:var(--g);border:0;background:none}
 <div class="t" id="fc"></div><h2 id="ft"></h2><p id="fa"></p>
 <input type="range" id="rg" min="0" max="100" value="0" oninput="au.currentTime=this.value"><div class="tm"><span id="t1">0:00</span><span id="t2">0:00</span></div>
 <div class="c"><button id="sh" onclick="shuf=!shuf;this.classList.toggle('on2',shuf)">🔀</button><button class="pp" id="fb" onclick="tg()">▶</button><button onclick="next()">⏭</button><button id="hr" onclick="fav()">♡</button></div></div>
-</div><div id="to" hidden></div>
+</div>
+<div id="dl" hidden><button onclick="$('#dl').hidden=true" class="o">Cerrar</button><h2>¿Cuál canción quieres borrar?</h2><div id="dlist"></div></div>
+<div id="cf" hidden><div><p id="cq"></p><div class="k"><button class="o" onclick="delNo()">Cancelar</button><button class="b" onclick="delYes()">Aceptar</button></div></div></div>
+<div id="to" hidden></div>
 <script>
 const U='https://yweppbewdbpkucmqwsrx.supabase.co',K='sb_publishable_dEAsPngzThs8w93Er6xBtg_JyOdqoE5',$=s=>document.querySelector(s),au=new Audio();
 let S=JSON.parse(localStorage.sb||'null'),me=JSON.parse(localStorage.me||'null'),songs=[],favs=new Set(JSON.parse(localStorage.fv||'[]')),plays=JSON.parse(localStorage.pl||'{}'),pend=JSON.parse(localStorage.pp||'[]'),view='home',q='',shuf=false,cur=-1,queue=[],vis=[],counted=false,ord={};
@@ -97,7 +104,7 @@ if(view=='home'){const a=songs.filter(f);if(q){v=a;h=grid(a)}else{const top=a.fi
 rest=a.filter(s=>!top.includes(s)).sort((x,y)=>(ord[x.id]=ord[x.id]||Math.random())-(ord[y.id]=ord[y.id]||Math.random()));v=[...top,...rest];
 h=(top.length?'<h2>Más escuchadas</h2>'+grid(top):'')+'<h2>'+(top.length?'Descubre':'Para ti')+'</h2>'+grid(rest)}}
 else if(view=='fav'){v=songs.filter(s=>favs.has(s.id)&&f(s));h='<h2>Favoritos</h2>'+grid(v)}
-else{v=songs.filter(f);h=(me&&me.is_admin?`<h2>Agregar canción</h2><div class="ad"><label>Archivo mp3</label><input type="file" id="fa2" accept="audio/*"><label>Portada (opcional)</label><input type="file" id="fc2" accept="image/*"><input id="ti" placeholder="Título (si lo dejas vacío usa el nombre del archivo)"><input id="ar" placeholder="Artista"><button class="b" onclick="up()">Subir</button></div>`:'')+'<h2>Biblioteca ('+v.length+')</h2>'+v.map(s=>`<div class="r" onclick="play('${s.id}')"><div class="t"${bg(s)}></div><div><b>${esc(s.title)}</b><small>${esc(s.artist)} · ${fmt(s.duration)}</small></div></div>`).join('')+`<p style="margin-top:20px"><small>${esc(me?me.full_name:'')}</small> <button class="o" onclick="localStorage.clear();location.reload()">Salir</button></p>`}
+else{v=songs.filter(f);h=(me&&me.is_admin?`<h2>Agregar canción</h2><div class="ad"><label>Archivo mp3</label><input type="file" id="fa2" accept="audio/*"><label>Portada (opcional)</label><input type="file" id="fc2" accept="image/*"><input id="ti" placeholder="Título (si lo dejas vacío usa el nombre del archivo)"><input id="ar" placeholder="Artista"><button class="b" onclick="up()">Subir</button></div><button class="o" style="width:100%;margin-bottom:6px" onclick="delOpen()">🗑 Borrar canción</button>`:'')+'<h2>Biblioteca ('+v.length+')</h2>'+v.map(s=>`<div class="r" onclick="play('${s.id}')"><div class="t"${bg(s)}></div><div><b>${esc(s.title)}</b><small>${esc(s.artist)} · ${fmt(s.duration)}</small></div></div>`).join('')+`<p style="margin-top:20px"><small>${esc(me?me.full_name:'')}</small> <button class="o" onclick="localStorage.clear();location.reload()">Salir</button></p>`}
 vis=v;$('#main').innerHTML=h}
 function go(v){view=v;q='';$('#sq').value='';$('#hd').classList.remove('s');render();scrollTo(0,0)}
 function srch(){const h=$('#hd');h.classList.toggle('s');if(h.classList.contains('s')){$('#sq').focus()}else{q='';$('#sq').value='';render()}}
@@ -119,6 +126,15 @@ try{await api('/storage/v1/object/musica/'+ap,{method:'POST',headers:{'Content-T
 if(c){cp=id+'.'+(c.name.split('.').pop()||'jpg');await api('/storage/v1/object/portadas/'+cp,{method:'POST',headers:{'Content-Type':c.type||'image/jpeg'},body:c})}
 await api('/rest/v1/songs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('#ti').value||f.name.replace(/\.[^.]+$/,''),artist:$('#ar').value,audio_path:ap,cover_path:cp,duration:await dur(f)})});
 toast('Listo');await sync()}catch(e){toast('Error: '+e.message)}}
+function delOpen(){$('#dl').hidden=false;$('#dlist').innerHTML=songs.map(s=>`<div class="r" onclick="delAsk('${s.id}')"><div class="t"${bg(s)}></div><div><b>${esc(s.title)}</b><small>${esc(s.artist)}</small></div></div>`).join('')||'<small>No hay canciones.</small>'}
+let dsel=null;
+function delAsk(id){dsel=songs.find(s=>s.id==id);if(!dsel)return;$('#cq').textContent='¿Quieres borrar “'+dsel.title+'”? No se puede deshacer.';$('#cf').hidden=false}
+function delNo(){$('#cf').hidden=true;dsel=null}
+async function delYes(){const s=dsel;$('#cf').hidden=true;if(!s)return;toast('Borrando...');
+try{await api('/rest/v1/songs?id=eq.'+s.id,{method:'DELETE'});
+try{await api('/storage/v1/object/musica/'+s.audio_path,{method:'DELETE'});if(s.cover_path)await api('/storage/v1/object/portadas/'+s.cover_path,{method:'DELETE'})}catch(e){}
+if(queue[cur]&&queue[cur].id==s.id){au.pause();au.removeAttribute('src');$('#mini').hidden=true;$('#full').hidden=true;queue=[];cur=-1}
+await dbDel(s.id);await load();render();delOpen();toast('Canción borrada')}catch(e){toast('Error: '+e.message)}dsel=null}
 addEventListener('online',sync);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 if(S)start();
