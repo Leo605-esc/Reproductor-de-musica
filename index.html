@@ -41,10 +41,12 @@ input[type=range]{padding:0;accent-color:var(--g);border:0;background:none}
 .c .pp{background:var(--g);color:#000;border-radius:50%;width:64px;height:64px;font-size:26px}
 .on2{color:var(--g)}
 #to{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--g);color:#000;padding:8px 14px;border-radius:20px;font-size:14px;z-index:20}
-#dl{position:fixed;inset:0;background:var(--bg);z-index:12;padding:calc(env(safe-area-inset-top) + 14px) 14px 20px;overflow:auto}
+#dl,#pk{position:fixed;inset:0;background:var(--bg);z-index:12;padding:calc(env(safe-area-inset-top) + 14px) 14px 20px;overflow:auto}
 #cf{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:15;display:grid;place-items:center;padding:20px}
 #cf div{background:var(--card);border:1px solid var(--g);border-radius:16px;padding:20px;max-width:340px;display:grid;gap:16px}
 #cf .k{display:flex;gap:10px}#cf .k button{flex:1}
+#sh{color:var(--mu);display:grid;place-items:center;gap:3px}#sh.on2{color:var(--g)}#sh.on2::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--g)}
+.c button{display:grid;place-items:center}.c{font-size:26px}.c .pp{width:60px;height:60px}
 </style></head><body>
 <div id="login"><h1>Reproductor de música</h1>
 <input id="nm" placeholder="Tu nombre corto" autocapitalize="none" autocomplete="username">
@@ -55,14 +57,15 @@ input[type=range]{padding:0;accent-color:var(--g);border:0;background:none}
 <header id="hd"><h1>Reproductor de música</h1><input id="sq" placeholder="Buscar canción o artista" oninput="q=this.value.toLowerCase();render()"><button onclick="srch()" style="font-size:22px">🔍</button></header>
 <div id="main"></div>
 <div id="mini" hidden onclick="$('#full').hidden=false"><div class="t" id="mc"></div><div class="i"><b id="mt"></b><small id="ma"></small></div>
-<button id="mb" onclick="event.stopPropagation();tg()" style="font-size:22px">▶</button><button onclick="event.stopPropagation();next()" style="font-size:22px">⏭</button><div id="mp"></div></div>
-<nav><button data-v="home" onclick="go('home')">Inicio</button><button data-v="fav" onclick="go('fav')">Favoritos</button><button data-v="lib" onclick="go('lib')">Biblioteca</button></nav>
-<div id="full" hidden><button onclick="$('#full').hidden=true" style="align-self:flex-start;font-size:24px">⌄</button>
+<button id="mb" onclick="event.stopPropagation();tg()"></button><button id="mn" onclick="event.stopPropagation();next()"></button><div id="mp"></div></div>
+<nav><button data-v="home" onclick="go('home')">Inicio</button><button data-v="fav" onclick="go('fav')">Favoritos</button><button data-v="pl" onclick="go('pl')">Playlists</button><button data-v="lib" onclick="go('lib')">Biblioteca</button></nav>
+<div id="full" hidden><div style="display:flex;justify-content:space-between"><button onclick="$('#full').hidden=true" style="font-size:24px">⌄</button><button onclick="pkOpen('l')" style="font-size:26px">＋</button></div>
 <div class="t" id="fc"></div><h2 id="ft"></h2><p id="fa"></p>
 <input type="range" id="rg" min="0" max="100" value="0" oninput="au.currentTime=this.value"><div class="tm"><span id="t1">0:00</span><span id="t2">0:00</span></div>
-<div class="c"><button id="sh" onclick="shuf=!shuf;this.classList.toggle('on2',shuf)">🔀</button><button class="pp" id="fb" onclick="tg()">▶</button><button onclick="next()">⏭</button><button id="hr" onclick="fav()">♡</button></div></div>
+<div class="c"><button id="sh" onclick="shuf=!shuf;this.classList.toggle('on2',shuf);toast(shuf?'Aleatorio activado':'Aleatorio desactivado')"></button><button id="pv" onclick="prev()"></button><button class="pp" id="fb" onclick="tg()"></button><button id="nx" onclick="next()"></button><button id="hr" onclick="fav()">♡</button></div></div>
 </div>
 <div id="dl" hidden><button onclick="$('#dl').hidden=true" class="o">Cerrar</button><h2>¿Cuál canción quieres borrar?</h2><div id="dlist"></div></div>
+<div id="pk" hidden><button class="o" onclick="$('#pk').hidden=true">Listo</button><h2 id="pkt"></h2><div id="pkl"></div></div>
 <div id="cf" hidden><div><p id="cq"></p><div class="k"><button class="o" onclick="delNo()">Cancelar</button><button class="b" onclick="delYes()">Aceptar</button></div></div></div>
 <div id="to" hidden></div>
 <script>
@@ -92,6 +95,7 @@ for(const r of rs)if(!have.has(r.id)){toast('Descargando: '+r.title);try{const a
 for(const s of songs)if(!rs.some(r=>r.id==s.id))await dbDel(s.id);
 favs=new Set((await api('/rest/v1/favorites?select=song_id')).map(x=>x.song_id));localStorage.fv=JSON.stringify([...favs]);
 plays={};(await api('/rest/v1/plays?select=song_id,count')).forEach(x=>plays[x.song_id]=x.count);localStorage.pl=JSON.stringify(plays);
+try{await plSync()}catch(e){}
 await load();render()}catch(e){}syncing=false}
 async function start(){$('#login').hidden=true;$('#app').hidden=false;await load();render();
 if(navigator.onLine){try{me=(await api('/rest/v1/profiles?select=*&id=eq.'+S.uid))[0];localStorage.me=JSON.stringify(me)}catch(e){}render();sync()}}
@@ -99,11 +103,14 @@ const cv=s=>s.c?(s.u=s.u||URL.createObjectURL(s.c)):'',bg=s=>s.c?` style="backgr
 const on=s=>queue[cur]&&queue[cur].id==s.id?' on':'';
 const grid=a=>a.length?'<div class="g">'+a.map(s=>`<div class="t${on(s)}" onclick="play('${s.id}')"${bg(s)}><b>${esc(s.title)}</b></div>`).join('')+'</div>':'<small>Aquí no hay canciones todavía.</small>';
 function render(){const f=s=>!q||(s.title+' '+(s.artist||'')).toLowerCase().includes(q);let h='',v=[];
-document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v==view));
+document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v==view||(view=='pld'&&b.dataset.v=='pl')));
 if(view=='home'){const a=songs.filter(f);if(q){v=a;h=grid(a)}else{const top=a.filter(s=>plays[s.id]).sort((x,y)=>plays[y.id]-plays[x.id]).slice(0,9),
 rest=a.filter(s=>!top.includes(s)).sort((x,y)=>(ord[x.id]=ord[x.id]||Math.random())-(ord[y.id]=ord[y.id]||Math.random()));v=[...top,...rest];
 h=(top.length?'<h2>Más escuchadas</h2>'+grid(top):'')+'<h2>'+(top.length?'Descubre':'Para ti')+'</h2>'+grid(rest)}}
 else if(view=='fav'){v=songs.filter(s=>favs.has(s.id)&&f(s));h='<h2>Favoritos</h2>'+grid(v)}
+else if(view=='pl'){h='<h2>Playlists</h2><button class="b" style="width:100%;margin-bottom:8px" onclick="plNew()">＋ Nueva playlist</button>'+(pls.map(p=>`<div class="r" onclick="plOpen('${p.id}')"><div class="t"></div><div><b>${esc(p.name)}</b><small>${p.songs.length} canciones</small></div></div>`).join('')||'<small>Aún no tienes playlists.</small>')}
+else if(view=='pld'){const p=pls.find(x=>x.id==pid);if(!p){view='pl';return render()}v=p.songs.map(i=>songs.find(s=>s.id==i)).filter(Boolean).filter(f);
+h=`<button class="o" onclick="go('pl')">‹ Playlists</button><h2>${esc(p.name)}</h2><div style="display:flex;gap:8px;margin-bottom:10px"><button class="b" style="flex:1" onclick="plPlay()">▶ Reproducir</button><button class="o" style="flex:1" onclick="pkOpen('s')">＋ Canciones</button><button class="o" onclick="plDel()">🗑</button></div>`+grid(v)}
 else{v=songs.filter(f);h=(me&&me.is_admin?`<h2>Agregar canción</h2><div class="ad"><label>Archivo mp3</label><input type="file" id="fa2" accept="audio/*"><label>Portada (opcional)</label><input type="file" id="fc2" accept="image/*"><input id="ti" placeholder="Título (si lo dejas vacío usa el nombre del archivo)"><input id="ar" placeholder="Artista"><button class="b" onclick="up()">Subir</button></div><button class="o" style="width:100%;margin-bottom:6px" onclick="delOpen()">🗑 Borrar canción</button>`:'')+'<h2>Biblioteca ('+v.length+')</h2>'+v.map(s=>`<div class="r" onclick="play('${s.id}')"><div class="t"${bg(s)}></div><div><b>${esc(s.title)}</b><small>${esc(s.artist)} · ${fmt(s.duration)}</small></div></div>`).join('')+`<p style="margin-top:20px"><small>${esc(me?me.full_name:'')}</small> <button class="o" onclick="localStorage.clear();location.reload()">Salir</button></p>`}
 vis=v;$('#main').innerHTML=h}
 function go(v){view=v;q='';$('#sq').value='';$('#hd').classList.remove('s');render();scrollTo(0,0)}
@@ -111,10 +118,10 @@ function srch(){const h=$('#hd');h.classList.toggle('s');if(h.classList.contains
 function play(id){queue=vis.slice();cur=queue.findIndex(s=>s.id==id);const s=queue[cur];if(!s)return;au.src=s.k=s.k||URL.createObjectURL(s.a);au.play();counted=false;
 $('#mini').hidden=false;for(const p of ['mc','fc']){const e=$('#'+p);e.style.backgroundImage=s.c?`url(${cv(s)})`:'';if(s.c)e.removeAttribute('data-n')}
 $('#mt').textContent=$('#ft').textContent=s.title;$('#ma').textContent=$('#fa').textContent=s.artist||'';$('#rg').max=s.duration||100;$('#t2').textContent=fmt(s.duration);hr();render();
-if('mediaSession' in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist||'',artwork:s.c?[{src:cv(s)}]:[]});navigator.mediaSession.setActionHandler('nexttrack',next);navigator.mediaSession.setActionHandler('play',tg);navigator.mediaSession.setActionHandler('pause',tg)}}
+if('mediaSession' in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist||'',artwork:s.c?[{src:cv(s)}]:[]});navigator.mediaSession.setActionHandler('nexttrack',next);navigator.mediaSession.setActionHandler('previoustrack',prev);navigator.mediaSession.setActionHandler('play',tg);navigator.mediaSession.setActionHandler('pause',tg)}}
 function next(){if(!queue.length)return;const n=queue.length;let i=shuf&&n>1?(cur+1+Math.floor(Math.random()*(n-1)))%n:(cur+1)%n;play(queue[i].id)}
 function tg(){au.paused?au.play():au.pause()}
-au.onplay=au.onpause=()=>$('#mb').textContent=$('#fb').textContent=au.paused?'▶':'⏸';au.onended=next;
+au.onplay=au.onpause=()=>$('#mb').innerHTML=$('#fb').innerHTML=au.paused?I.play:I.pause;au.onended=next;
 au.ontimeupdate=()=>{const d=au.duration||1;$('#mp').style.width=au.currentTime/d*100+'%';$('#rg').max=d;$('#rg').value=au.currentTime;$('#t1').textContent=fmt(au.currentTime);$('#t2').textContent=fmt(d);
 const s=queue[cur];if(s&&!counted&&au.currentTime>=Math.min(30,d/2)){counted=true;plays[s.id]=(plays[s.id]||0)+1;localStorage.pl=JSON.stringify(plays);pend.push(s.id);localStorage.pp=JSON.stringify(pend);flush()}};
 function hr(){const s=queue[cur];$('#hr').textContent=s&&favs.has(s.id)?'♥':'♡';$('#hr').classList.toggle('on2',!!(s&&favs.has(s.id)))}
@@ -135,6 +142,23 @@ try{await api('/rest/v1/songs?id=eq.'+s.id,{method:'DELETE'});
 try{await api('/storage/v1/object/musica/'+s.audio_path,{method:'DELETE'});if(s.cover_path)await api('/storage/v1/object/portadas/'+s.cover_path,{method:'DELETE'})}catch(e){}
 if(queue[cur]&&queue[cur].id==s.id){au.pause();au.removeAttribute('src');$('#mini').hidden=true;$('#full').hidden=true;queue=[];cur=-1}
 await dbDel(s.id);await load();render();delOpen();toast('Canción borrada')}catch(e){toast('Error: '+e.message)}dsel=null}
+const sg=(d,f)=>`<svg viewBox="0 0 24 24" width="26" height="26" fill="${f?'currentColor':'none'}" stroke="${f?'none':'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+const I={play:sg('M8 5v14l11-7z',1),pause:sg('M7 5h4v14H7zM13 5h4v14h-4z',1),next:sg('M16 5h2v14h-2zM4 5v14l11-7z',1),prev:sg('M6 5h2v14H6zM20 5v14L9 12z',1),shuf:sg('M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5')};
+$('#mb').innerHTML=$('#fb').innerHTML=I.play;$('#pv').innerHTML=I.prev;$('#nx').innerHTML=$('#mn').innerHTML=I.next;$('#sh').innerHTML=I.shuf;
+function prev(){if(!queue.length)return;if(au.currentTime>3){au.currentTime=0;return}const n=queue.length;play(queue[(cur-1+n)%n].id)}
+let pls=JSON.parse(localStorage.pls||'[]'),pid=null,pkm='s';const svp=()=>localStorage.pls=JSON.stringify(pls);
+async function plSync(){const r=await api('/rest/v1/playlists?select=id,name,playlist_songs(song_id,added_at)&order=created_at');pls=r.map(p=>({id:p.id,name:p.name,songs:p.playlist_songs.sort((a,b)=>a.added_at<b.added_at?-1:1).map(x=>x.song_id)}));svp()}
+async function plNew(){const n=(prompt('Nombre de la playlist')||'').trim();if(!n)return;try{const r=await api('/rest/v1/playlists',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({name:n})});pls.push({id:r[0].id,name:n,songs:[]});svp();render()}catch(e){toast('Se necesita Internet')}}
+function plOpen(id){pid=id;view='pld';render();scrollTo(0,0)}
+function plPlay(){if(vis.length)play(vis[0].id)}
+async function plDel(){const p=pls.find(x=>x.id==pid);if(!p||!confirm('¿Borrar la playlist “'+p.name+'”? Las canciones no se borran.'))return;try{await api('/rest/v1/playlists?id=eq.'+pid,{method:'DELETE'});pls=pls.filter(x=>x.id!=pid);svp();go('pl')}catch(e){toast('Se necesita Internet')}}
+function pkOpen(m){if(m=='l'&&!queue[cur])return;pkm=m;pkr()}
+function pkr(){$('#pk').hidden=false;const p=pls.find(x=>x.id==pid),cs=queue[cur],ck=b=>`<span class="on2">${b?'✓':''}</span>`;
+$('#pkt').textContent=pkm=='s'?'Toca para agregar o quitar':'Agregar “'+(cs?cs.title:'')+'” a:';
+$('#pkl').innerHTML=pkm=='s'?songs.map(s=>`<div class="r" onclick="tgl('${p.id}','${s.id}')"><div class="t"${bg(s)}></div><div style="flex:1"><b>${esc(s.title)}</b><small>${esc(s.artist)}</small></div>${ck(p.songs.includes(s.id))}</div>`).join(''):(pls.map(l=>`<div class="r" onclick="tgl('${l.id}','${cs.id}')"><div class="t"></div><div style="flex:1"><b>${esc(l.name)}</b></div>${ck(l.songs.includes(cs.id))}</div>`).join('')||'<small>Primero crea una playlist en la pestaña Playlists.</small>')}
+async function tgl(lid,sid){const l=pls.find(x=>x.id==lid),has=l.songs.includes(sid);
+try{has?await api(`/rest/v1/playlist_songs?playlist_id=eq.${lid}&song_id=eq.${sid}`,{method:'DELETE'}):await api('/rest/v1/playlist_songs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playlist_id:lid,song_id:sid})});
+l.songs=has?l.songs.filter(x=>x!=sid):[...l.songs,sid];svp();pkr();if(view=='pld')render()}catch(e){toast('Se necesita Internet')}}
 addEventListener('online',sync);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 if(S)start();
