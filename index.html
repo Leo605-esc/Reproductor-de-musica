@@ -61,8 +61,8 @@ input[type=range]{padding:0;accent-color:var(--g);border:0;background:none}
 <nav><button data-v="home" onclick="go('home')">Inicio</button><button data-v="fav" onclick="go('fav')">Favoritos</button><button data-v="pl" onclick="go('pl')">Playlists</button><button data-v="lib" onclick="go('lib')">Biblioteca</button></nav>
 <div id="full" hidden><div style="display:flex;justify-content:space-between"><button onclick="$('#full').hidden=true" style="font-size:24px">⌄</button><button onclick="pkOpen('l')" style="font-size:26px">＋</button></div>
 <div class="t" id="fc"></div><h2 id="ft"></h2><p id="fa"></p>
-<input type="range" id="rg" min="0" max="100" value="0" oninput="au.currentTime=this.value"><div class="tm"><span id="t1">0:00</span><span id="t2">0:00</span></div>
-<div class="c"><button id="sh" onclick="shuf=!shuf;this.classList.toggle('on2',shuf);toast(shuf?'Aleatorio activado':'Aleatorio desactivado')"></button><button id="pv" onclick="prev()"></button><button class="pp" id="fb" onclick="tg()"></button><button id="nx" onclick="next()"></button><button id="hr" onclick="fav()">♡</button></div></div>
+<input type="range" id="rg" min="0" max="100" value="0" oninput="drag=true;$('#t1').textContent=fmt(this.value)" onchange="au.currentTime=this.value;drag=false"><div class="tm"><span id="t1">0:00</span><span id="t2">0:00</span></div>
+<div class="c"><button id="sh" onclick="shufT()"></button><button id="pv" onclick="prev()"></button><button class="pp" id="fb" onclick="tg()"></button><button id="nx" onclick="next()"></button><button id="hr" onclick="fav()">♡</button></div></div>
 </div>
 <div id="dl" hidden><button onclick="$('#dl').hidden=true" class="o">Cerrar</button><h2>¿Cuál canción quieres borrar?</h2><div id="dlist"></div></div>
 <div id="pk" hidden><button class="o" onclick="$('#pk').hidden=true">Listo</button><h2 id="pkt"></h2><div id="pkl"></div></div>
@@ -74,9 +74,9 @@ let S=JSON.parse(localStorage.sb||'null'),me=JSON.parse(localStorage.me||'null')
 const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=t=>{t=Math.floor(t||0);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')};
 function toast(m){const t=$('#to');t.textContent=m;t.hidden=false;clearTimeout(t.h);t.h=setTimeout(()=>t.hidden=true,2500)}
-const idb=new Promise(r=>{const o=indexedDB.open('rm',1);o.onupgradeneeded=()=>o.result.createObjectStore('s',{keyPath:'id'});o.onsuccess=()=>r(o.result)});
-const tx=async(m,f)=>{const d=await idb;return new Promise((res,rej)=>{const t=d.transaction('s',m),r=f(t.objectStore('s'));t.oncomplete=()=>res(r.result);t.onerror=()=>rej(t.error)})};
-const dbAll=()=>tx('readonly',s=>s.getAll()),dbPut=x=>tx('readwrite',s=>s.put(x)),dbDel=i=>tx('readwrite',s=>s.delete(i));
+const idb=new Promise(r=>{const o=indexedDB.open('rm',2);o.onupgradeneeded=()=>{const d=o.result;if(!d.objectStoreNames.contains('s'))d.createObjectStore('s',{keyPath:'id'});if(!d.objectStoreNames.contains('a'))d.createObjectStore('a')};o.onsuccess=()=>r(o.result)});
+const tx=async(st,m,f)=>{const d=await idb;return new Promise((res,rej)=>{const t=d.transaction(st,m),r=f(t.objectStore(st));t.oncomplete=()=>res(r.result);t.onerror=()=>rej(t.error)})};
+const dbAll=()=>tx('s','readonly',s=>s.getAll()),dbPut=x=>tx('s','readwrite',s=>s.put(x)),getA=i=>tx('a','readonly',s=>s.get(i)),putA=(i,b)=>tx('a','readwrite',s=>s.put(b,i)),dbDel=async i=>{await tx('s','readwrite',s=>s.delete(i));await tx('a','readwrite',s=>s.delete(i))};
 function setS(d){S={access_token:d.access_token,refresh_token:d.refresh_token,exp:d.expires_at||Date.now()/1000+d.expires_in,uid:d.user.id};localStorage.sb=JSON.stringify(S)}
 async function refresh(){try{const r=await fetch(U+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:K,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:S.refresh_token})});if(r.ok)setS(await r.json());else if(r.status<500){S=null;localStorage.removeItem('sb');location.reload()}}catch(e){}}
 async function api(p,o={},raw){if(S&&S.exp<Date.now()/1000+60&&navigator.onLine)await refresh();
@@ -86,12 +86,12 @@ async function auth(reg){const e=$('#nm').value.trim().toLowerCase()+'@musica.ap
 try{if(reg){const r=await fetch(U+'/auth/v1/signup',{method:'POST',headers:h,body:JSON.stringify({email:e,password:p})});if(!r.ok)throw new Error('Ese nombre no está permitido, ya existe o la contraseña es muy corta')}
 const r=await fetch(U+'/auth/v1/token?grant_type=password',{method:'POST',headers:h,body:JSON.stringify({email:e,password:p})});
 if(!r.ok)throw new Error('Nombre o contraseña incorrectos');setS(await r.json());start()}catch(x){$('#err').textContent=x.message}}
-async function load(){songs=(await dbAll()).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''))}
+async function load(){songs=await dbAll();let mig=0;for(const x of songs)if(x.a){mig=1;await putA(x.id,x.a);const{a,...m}=x;await dbPut(m)}if(mig)songs=await dbAll();songs.sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''))}
 async function flush(){for(const id of [...pend]){try{await api('/rest/v1/rpc/increment_play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({song:id})});pend.splice(pend.indexOf(id),1);localStorage.pp=JSON.stringify(pend)}catch(e){break}}}
 let syncing=false;
 async function sync(){if(syncing||!S||!navigator.onLine)return;syncing=true;try{
 const rs=await api('/rest/v1/songs?select=*&order=created_at.desc'),have=new Set(songs.map(s=>s.id));await flush();
-for(const r of rs)if(!have.has(r.id)){toast('Descargando: '+r.title);try{const a=await(await api('/storage/v1/object/authenticated/musica/'+r.audio_path,{},1)).blob();let c=null;if(r.cover_path)c=await(await api('/storage/v1/object/authenticated/portadas/'+r.cover_path,{},1)).blob();await dbPut({...r,a,c});await load();render()}catch(e){}}
+let nd=0;const falt=rs.filter(r=>!have.has(r.id));for(const r of falt){toast('Descargando '+(++nd)+' de '+falt.length);try{const a=await(await api('/storage/v1/object/authenticated/musica/'+r.audio_path,{},1)).blob();let c=null;if(r.cover_path)c=await(await api('/storage/v1/object/authenticated/portadas/'+r.cover_path,{},1)).blob();await putA(r.id,a);await dbPut({...r,c})}catch(e){}}
 for(const s of songs)if(!rs.some(r=>r.id==s.id))await dbDel(s.id);
 favs=new Set((await api('/rest/v1/favorites?select=song_id')).map(x=>x.song_id));localStorage.fv=JSON.stringify([...favs]);
 plays={};(await api('/rest/v1/plays?select=song_id,count')).forEach(x=>plays[x.song_id]=x.count);localStorage.pl=JSON.stringify(plays);
@@ -99,9 +99,9 @@ try{await plSync()}catch(e){}
 await load();render()}catch(e){}syncing=false}
 async function start(){$('#login').hidden=true;$('#app').hidden=false;await load();render();
 if(navigator.onLine){try{me=(await api('/rest/v1/profiles?select=*&id=eq.'+S.uid))[0];localStorage.me=JSON.stringify(me)}catch(e){}render();sync()}}
-const cv=s=>s.c?(s.u=s.u||URL.createObjectURL(s.c)):'',bg=s=>s.c?` style="background-image:url(${cv(s)})"`:'';
+const cu={},cv=s=>s.c?(cu[s.id]=cu[s.id]||URL.createObjectURL(s.c)):'',bg=s=>s.c?` style="background-image:url(${cv(s)})"`:'';
 const on=s=>queue[cur]&&queue[cur].id==s.id?' on':'';
-const grid=a=>a.length?'<div class="g">'+a.map(s=>`<div class="t${on(s)}" onclick="play('${s.id}')"${bg(s)}><b>${esc(s.title)}</b></div>`).join('')+'</div>':'<small>Aquí no hay canciones todavía.</small>';
+const grid=a=>a.length?'<div class="g">'+a.map(s=>`<div class="t${on(s)}" data-id="${s.id}" onclick="play('${s.id}')"${bg(s)}><b>${esc(s.title)}</b></div>`).join('')+'</div>':'<small>Aquí no hay canciones todavía.</small>';
 function render(){const f=s=>!q||(s.title+' '+(s.artist||'')).toLowerCase().includes(q);let h='',v=[];
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v==view||(view=='pld'&&b.dataset.v=='pl')));
 if(view=='home'){const a=songs.filter(f);if(q){v=a;h=grid(a)}else{const top=a.filter(s=>plays[s.id]).sort((x,y)=>plays[y.id]-plays[x.id]).slice(0,9),
@@ -115,14 +115,22 @@ else{v=songs.filter(f);h=(me&&me.is_admin?`<h2>Agregar canción</h2><div class="
 vis=v;$('#main').innerHTML=h}
 function go(v){view=v;q='';$('#sq').value='';$('#hd').classList.remove('s');render();scrollTo(0,0)}
 function srch(){const h=$('#hd');h.classList.toggle('s');if(h.classList.contains('s')){$('#sq').focus()}else{q='';$('#sq').value='';render()}}
-function play(id){queue=vis.slice();cur=queue.findIndex(s=>s.id==id);const s=queue[cur];if(!s)return;au.src=s.k=s.k||URL.createObjectURL(s.a);au.play();counted=false;
-$('#mini').hidden=false;for(const p of ['mc','fc']){const e=$('#'+p);e.style.backgroundImage=s.c?`url(${cv(s)})`:'';if(s.c)e.removeAttribute('data-n')}
-$('#mt').textContent=$('#ft').textContent=s.title;$('#ma').textContent=$('#fa').textContent=s.artist||'';$('#rg').max=s.duration||100;$('#t2').textContent=fmt(s.duration);hr();render();
-if('mediaSession' in navigator){navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist||'',artwork:s.c?[{src:cv(s)}]:[]});navigator.mediaSession.setActionHandler('nexttrack',next);navigator.mediaSession.setActionHandler('previoustrack',prev);navigator.mediaSession.setActionHandler('play',tg);navigator.mediaSession.setActionHandler('pause',tg)}}
-function next(){if(!queue.length)return;const n=queue.length;let i=shuf&&n>1?(cur+1+Math.floor(Math.random()*(n-1)))%n:(cur+1)%n;play(queue[i].id)}
+let base=[],tok=0,drag=false;
+const deck=(l,id)=>{const a=l.filter(x=>x.id!=id);for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}const f=l.find(x=>x.id==id);return f?[f,...a]:a};
+function play(id){base=(vis.some(x=>x.id==id)?vis:songs).slice();queue=shuf?deck(base,id):base.slice();playAt(queue.findIndex(x=>x.id==id))}
+async function playAt(i){if(!queue.length)return;cur=(i+queue.length)%queue.length;const s=queue[cur],t=++tok;
+const b=await getA(s.id)||s.a;if(t!=tok)return;if(!b){toast('Esa canción aún no se descarga');return}
+if(au.k)URL.revokeObjectURL(au.k);au.k=URL.createObjectURL(b);au.src=au.k;au.play().catch(()=>{});counted=false;
+$('#mini').hidden=false;for(const p of ['mc','fc'])$('#'+p).style.backgroundImage=s.c?`url(${cv(s)})`:'';
+$('#mt').textContent=$('#ft').textContent=s.title;$('#ma').textContent=$('#fa').textContent=s.artist||'';$('#rg').max=s.duration||100;$('#t2').textContent=fmt(s.duration);hr();
+document.querySelectorAll('.t[data-id]').forEach(e=>e.classList.toggle('on',e.dataset.id==s.id));
+if('mediaSession' in navigator){const m=navigator.mediaSession;m.metadata=new MediaMetadata({title:s.title,artist:s.artist||'',artwork:s.c?[{src:cv(s)}]:[]});m.setActionHandler('nexttrack',next);m.setActionHandler('previoustrack',prev);m.setActionHandler('play',tg);m.setActionHandler('pause',tg)}}
+function next(){if(!queue.length)return;if(shuf&&cur+1>=queue.length&&queue.length>1){queue=deck(base,queue[cur].id);cur=0}playAt(cur+1)}
+function prev(){if(!queue.length)return;if(au.currentTime>3){au.currentTime=0;return}playAt(cur-1)}
+function shufT(){shuf=!shuf;$('#sh').classList.toggle('on2',shuf);if(queue.length){const id=queue[cur].id;queue=shuf?deck(base,id):base.slice();cur=queue.findIndex(x=>x.id==id)}toast(shuf?'Aleatorio activado: lista barajada':'Aleatorio desactivado')}
 function tg(){au.paused?au.play():au.pause()}
 au.onplay=au.onpause=()=>$('#mb').innerHTML=$('#fb').innerHTML=au.paused?I.play:I.pause;au.onended=next;
-au.ontimeupdate=()=>{const d=au.duration||1;$('#mp').style.width=au.currentTime/d*100+'%';$('#rg').max=d;$('#rg').value=au.currentTime;$('#t1').textContent=fmt(au.currentTime);$('#t2').textContent=fmt(d);
+au.ontimeupdate=()=>{const d=au.duration||1;$('#mp').style.width=au.currentTime/d*100+'%';if(!drag){$('#rg').max=d;$('#rg').value=au.currentTime;$('#t1').textContent=fmt(au.currentTime)}$('#t2').textContent=fmt(d);
 const s=queue[cur];if(s&&!counted&&au.currentTime>=Math.min(30,d/2)){counted=true;plays[s.id]=(plays[s.id]||0)+1;localStorage.pl=JSON.stringify(plays);pend.push(s.id);localStorage.pp=JSON.stringify(pend);flush()}};
 function hr(){const s=queue[cur];$('#hr').textContent=s&&favs.has(s.id)?'♥':'♡';$('#hr').classList.toggle('on2',!!(s&&favs.has(s.id)))}
 async function fav(){const s=queue[cur];if(!s)return;const has=favs.has(s.id);has?favs.delete(s.id):favs.add(s.id);localStorage.fv=JSON.stringify([...favs]);hr();if(view=='fav')render();
@@ -140,12 +148,11 @@ function delNo(){$('#cf').hidden=true;dsel=null}
 async function delYes(){const s=dsel;$('#cf').hidden=true;if(!s)return;toast('Borrando...');
 try{await api('/rest/v1/songs?id=eq.'+s.id,{method:'DELETE'});
 try{await api('/storage/v1/object/musica/'+s.audio_path,{method:'DELETE'});if(s.cover_path)await api('/storage/v1/object/portadas/'+s.cover_path,{method:'DELETE'})}catch(e){}
-if(queue[cur]&&queue[cur].id==s.id){au.pause();au.removeAttribute('src');$('#mini').hidden=true;$('#full').hidden=true;queue=[];cur=-1}
-await dbDel(s.id);await load();render();delOpen();toast('Canción borrada')}catch(e){toast('Error: '+e.message)}dsel=null}
+if(queue[cur]&&queue[cur].id==s.id){au.pause();au.removeAttribute('src');$('#mini').hidden=true;$('#full').hidden=true;queue=[];base=[];cur=-1}else{const k=queue[cur]&&queue[cur].id;queue=queue.filter(x=>x.id!=s.id);base=base.filter(x=>x.id!=s.id);cur=queue.findIndex(x=>x.id==k)}
+if(cu[s.id]){URL.revokeObjectURL(cu[s.id]);delete cu[s.id]}await dbDel(s.id);await load();render();delOpen();toast('Canción borrada')}catch(e){toast('Error: '+e.message)}dsel=null}
 const sg=(d,f)=>`<svg viewBox="0 0 24 24" width="26" height="26" fill="${f?'currentColor':'none'}" stroke="${f?'none':'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 const I={play:sg('M8 5v14l11-7z',1),pause:sg('M7 5h4v14H7zM13 5h4v14h-4z',1),next:sg('M16 5h2v14h-2zM4 5v14l11-7z',1),prev:sg('M6 5h2v14H6zM20 5v14L9 12z',1),shuf:sg('M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5')};
 $('#mb').innerHTML=$('#fb').innerHTML=I.play;$('#pv').innerHTML=I.prev;$('#nx').innerHTML=$('#mn').innerHTML=I.next;$('#sh').innerHTML=I.shuf;
-function prev(){if(!queue.length)return;if(au.currentTime>3){au.currentTime=0;return}const n=queue.length;play(queue[(cur-1+n)%n].id)}
 let pls=JSON.parse(localStorage.pls||'[]'),pid=null,pkm='s';const svp=()=>localStorage.pls=JSON.stringify(pls);
 async function plSync(){const r=await api('/rest/v1/playlists?select=id,name,playlist_songs(song_id,added_at)&order=created_at');pls=r.map(p=>({id:p.id,name:p.name,songs:p.playlist_songs.sort((a,b)=>a.added_at<b.added_at?-1:1).map(x=>x.song_id)}));svp()}
 async function plNew(){const n=(prompt('Nombre de la playlist')||'').trim();if(!n)return;try{const r=await api('/rest/v1/playlists',{method:'POST',headers:{'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify({name:n})});pls.push({id:r[0].id,name:n,songs:[]});svp();render()}catch(e){toast('Se necesita Internet')}}
