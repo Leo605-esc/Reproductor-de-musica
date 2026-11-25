@@ -31,7 +31,7 @@ header.s #sq{display:block} header.s h1{display:none}
 #mini .t{width:42px;flex:none;border-radius:8px}#mini .i{flex:1;min-width:0}#mini b,#mini small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #mp{position:absolute;left:0;bottom:0;height:3px;background:var(--g);width:0}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#0f0e0a;border-top:1px solid #221f14;padding-bottom:env(safe-area-inset-bottom);z-index:7}
-nav button{flex:1;padding:14px 0;color:var(--mu);font-size:14px}nav button.on{color:var(--g)}
+nav button{display:grid;place-items:center;flex:1;padding:14px 0;color:var(--mu);font-size:14px}nav button.on{color:var(--g)}
 #full{position:fixed;inset:0;background:var(--bg);z-index:9;padding:calc(env(safe-area-inset-top) + 16px) 22px 30px;display:flex;flex-direction:column;gap:14px}
 #full .t{width:100%;max-width:340px;margin:10px auto;flex:none}
 #full h2{margin:0;text-align:center}#full p{text-align:center;color:var(--mu)}
@@ -41,12 +41,14 @@ input[type=range]{padding:0;accent-color:var(--g);border:0;background:none}
 .c .pp{background:var(--g);color:#000;border-radius:50%;width:64px;height:64px;font-size:26px}
 .on2{color:var(--g)}
 #to{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--g);color:#000;padding:8px 14px;border-radius:20px;font-size:14px;z-index:20}
-#dl,#pk{position:fixed;inset:0;background:var(--bg);z-index:12;padding:calc(env(safe-area-inset-top) + 14px) 14px 20px;overflow:auto}
-#cf{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:15;display:grid;place-items:center;padding:20px}
-#cf div{background:var(--card);border:1px solid var(--g);border-radius:16px;padding:20px;max-width:340px;display:grid;gap:16px}
+#dl,#pk,#rm{position:fixed;inset:0;background:var(--bg);z-index:12;padding:calc(env(safe-area-inset-top) + 14px) 14px 20px;overflow:auto}
+#cf,#pm{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:15;display:grid;place-items:center;padding:20px}
+#pm div{min-width:270px}
+#cf div,#pm div{background:var(--card);border:1px solid var(--g);border-radius:16px;padding:20px;max-width:340px;display:grid;gap:16px}
 #cf .k{display:flex;gap:10px}#cf .k button{flex:1}
 #sh{color:var(--mu);display:grid;place-items:center;gap:3px}#sh.on2{color:var(--g)}#sh.on2::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--g)}
 .c button{display:grid;place-items:center}.c{font-size:26px}.c .pp{width:60px;height:60px}
+#hd.s #lp{color:var(--g)!important}
 </style></head><body>
 <div id="login"><h1>Reproductor de música</h1>
 <input id="nm" placeholder="Tu nombre corto" autocapitalize="none" autocomplete="username">
@@ -54,17 +56,19 @@ input[type=range]{padding:0;accent-color:var(--g);border:0;background:none}
 <div id="err"></div><button class="b" onclick="auth(0)">Entrar</button><button class="o" onclick="auth(1)">Crear cuenta</button>
 <small>Nombres: Hugo, Ana, Leo, Pahulo o Noe. Cada quien inventa su contraseña.</small></div>
 <div id="app" hidden>
-<header id="hd"><h1>Reproductor de música</h1><input id="sq" placeholder="Buscar canción o artista" oninput="q=this.value.toLowerCase();render()"><button onclick="srch()" style="font-size:22px">🔍</button></header>
+<header id="hd"><h1>Reproductor de música</h1><input id="sq" placeholder="Buscar canción o artista" oninput="q=this.value.toLowerCase();render()"><button id="lp" aria-label="Buscar" onclick="srch()" style="color:var(--mu)"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5"/></svg></button></header>
 <div id="main"></div>
 <div id="mini" hidden onclick="$('#full').hidden=false"><div class="t" id="mc"></div><div class="i"><b id="mt"></b><small id="ma"></small></div>
 <button id="mb" onclick="event.stopPropagation();tg()"></button><button id="mn" onclick="event.stopPropagation();next()"></button><div id="mp"></div></div>
-<nav><button data-v="home" onclick="go('home')">Inicio</button><button data-v="fav" onclick="go('fav')">Favoritos</button><button data-v="pl" onclick="go('pl')">Playlists</button><button data-v="lib" onclick="go('lib')">Biblioteca</button></nav>
+<nav><button data-v="home" aria-label="Inicio" onclick="go('home')"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/></svg></button><button data-v="fav" aria-label="Favoritos" onclick="go('fav')"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.6-9.3-9A5.2 5.2 0 0 1 12 6.2 5.2 5.2 0 0 1 21.3 12c-2.3 4.4-9.3 9-9.3 9z"/></svg></button><button data-v="pl" aria-label="Playlists" onclick="go('pl')"><svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor" stroke="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14l11-7z"/></svg></button><button data-v="lib" aria-label="Biblioteca" onclick="go('lib')"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/></svg></button></nav>
 <div id="full" hidden><div style="display:flex;justify-content:space-between"><button onclick="$('#full').hidden=true" style="font-size:24px">⌄</button><button onclick="pkOpen('l')" style="font-size:26px">＋</button></div>
 <div class="t" id="fc"></div><h2 id="ft"></h2><p id="fa"></p>
 <input type="range" id="rg" min="0" max="100" value="0" oninput="drag=true;$('#t1').textContent=fmt(this.value)" onchange="au.currentTime=this.value;drag=false"><div class="tm"><span id="t1">0:00</span><span id="t2">0:00</span></div>
 <div class="c"><button id="sh" onclick="shufT()"></button><button id="pv" onclick="prev()"></button><button class="pp" id="fb" onclick="tg()"></button><button id="nx" onclick="next()"></button><button id="hr" onclick="fav()">♡</button></div></div>
 </div>
 <div id="dl" hidden><button onclick="$('#dl').hidden=true" class="o">Cerrar</button><h2>¿Cuál canción quieres borrar?</h2><div id="dlist"></div></div>
+<div id="pm" hidden onclick="if(event.target==this)this.hidden=true"><div><button class="o" onclick="$('#pm').hidden=true;plDel()">Borrar playlist</button><button class="o" onclick="plRm()">Quitar canciones</button><button class="o" onclick="$('#pm').hidden=true" style="color:var(--mu);border-color:#2a2618">Cancelar</button></div></div>
+<div id="rm" hidden><div style="display:flex;gap:8px;margin-bottom:10px"><button class="o" onclick="$('#rm').hidden=true" style="flex:1">Cancelar</button><button class="b" id="rmb" onclick="rmGo()" style="flex:1">Quitar</button></div><h2>Elige las canciones que quieres quitar</h2><small>Solo se quitan de esta playlist. No se borran de la app.</small><div id="rml"></div></div>
 <div id="pk" hidden><button class="o" onclick="$('#pk').hidden=true">Listo</button><h2 id="pkt"></h2><div id="pkl"></div></div>
 <div id="cf" hidden><div><p id="cq"></p><div class="k"><button class="o" onclick="delNo()">Cancelar</button><button class="b" onclick="delYes()">Aceptar</button></div></div></div>
 <div id="to" hidden></div>
@@ -110,8 +114,8 @@ h=(top.length?'<h2>Más escuchadas</h2>'+grid(top):'')+'<h2>'+(top.length?'Descu
 else if(view=='fav'){v=songs.filter(s=>favs.has(s.id)&&f(s));h='<h2>Favoritos</h2>'+grid(v)}
 else if(view=='pl'){h='<h2>Playlists</h2><button class="b" style="width:100%;margin-bottom:8px" onclick="plNew()">＋ Nueva playlist</button>'+(pls.map(p=>`<div class="r" onclick="plOpen('${p.id}')"><div class="t"></div><div><b>${esc(p.name)}</b><small>${p.songs.length} canciones</small></div></div>`).join('')||'<small>Aún no tienes playlists.</small>')}
 else if(view=='pld'){const p=pls.find(x=>x.id==pid);if(!p){view='pl';return render()}v=p.songs.map(i=>songs.find(s=>s.id==i)).filter(Boolean).filter(f);
-h=`<button class="o" onclick="go('pl')">‹ Playlists</button><h2>${esc(p.name)}</h2><div style="display:flex;gap:8px;margin-bottom:10px"><button class="b" style="flex:1" onclick="plPlay()">▶ Reproducir</button><button class="o" style="flex:1" onclick="pkOpen('s')">＋ Canciones</button><button class="o" onclick="plDel()">🗑</button></div>`+grid(v)}
-else{v=songs.filter(f);h=(me&&me.is_admin?`<h2>Agregar canción</h2><div class="ad"><label>Archivo mp3</label><input type="file" id="fa2" accept="audio/*"><label>Portada (opcional)</label><input type="file" id="fc2" accept="image/*"><input id="ti" placeholder="Título (si lo dejas vacío usa el nombre del archivo)"><input id="ar" placeholder="Artista"><button class="b" onclick="up()">Subir</button></div><button class="o" style="width:100%;margin-bottom:6px" onclick="delOpen()">🗑 Borrar canción</button>`:'')+'<h2>Biblioteca ('+v.length+')</h2>'+v.map(s=>`<div class="r" onclick="play('${s.id}')"><div class="t"${bg(s)}></div><div><b>${esc(s.title)}</b><small>${esc(s.artist)} · ${fmt(s.duration)}</small></div></div>`).join('')+`<p style="margin-top:20px"><small>${esc(me?me.full_name:'')}</small> <button class="o" onclick="localStorage.clear();location.reload()">Salir</button></p>`}
+h=`<button class="o" onclick="go('pl')">‹ Playlists</button><h2>${esc(p.name)}</h2><div style="display:flex;gap:8px;margin-bottom:10px"><button class="b" style="flex:1" onclick="plPlay()">▶ Reproducir</button><button class="o" style="flex:1" onclick="pkOpen('s')">＋ Canciones</button><button class="o" onclick="plMenu()" aria-label="Opciones"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg></button></div>`+grid(v)}
+else{v=songs.filter(f);h=(me&&me.is_admin?`<h2>Agregar canción</h2><div class="ad"><label>Archivo mp3</label><input type="file" id="fa2" accept="audio/*"><label>Portada (opcional)</label><input type="file" id="fc2" accept="image/*"><input id="ti" placeholder="Título (si lo dejas vacío usa el nombre del archivo)"><input id="ar" placeholder="Artista"><button class="b" onclick="up()">Subir</button></div><button class="o" style="width:100%;margin-bottom:6px" onclick="delOpen()"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/></svg> Borrar canción</button>`:'')+'<h2>Biblioteca ('+v.length+')</h2>'+v.map(s=>`<div class="r" onclick="play('${s.id}')"><div class="t"${bg(s)}></div><div><b>${esc(s.title)}</b><small>${esc(s.artist)} · ${fmt(s.duration)}</small></div></div>`).join('')+`<p style="margin-top:20px"><small>${esc(me?me.full_name:'')}</small> <button class="o" onclick="localStorage.clear();location.reload()">Salir</button></p>`}
 vis=v;$('#main').innerHTML=h}
 function go(v){view=v;q='';$('#sq').value='';$('#hd').classList.remove('s');render();scrollTo(0,0)}
 function srch(){const h=$('#hd');h.classList.toggle('s');if(h.classList.contains('s')){$('#sq').focus()}else{q='';$('#sq').value='';render()}}
@@ -166,6 +170,13 @@ $('#pkl').innerHTML=pkm=='s'?songs.map(s=>`<div class="r" onclick="tgl('${p.id}'
 async function tgl(lid,sid){const l=pls.find(x=>x.id==lid),has=l.songs.includes(sid);
 try{has?await api(`/rest/v1/playlist_songs?playlist_id=eq.${lid}&song_id=eq.${sid}`,{method:'DELETE'}):await api('/rest/v1/playlist_songs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playlist_id:lid,song_id:sid})});
 l.songs=has?l.songs.filter(x=>x!=sid):[...l.songs,sid];svp();pkr();if(view=='pld')render()}catch(e){toast('Se necesita Internet')}}
+let rsel=new Set();
+function plMenu(){$('#pm').hidden=false}
+function plRm(){$('#pm').hidden=true;rsel=new Set();rmr();$('#rm').hidden=false}
+function rmr(){const p=pls.find(x=>x.id==pid);if(!p)return;$('#rml').innerHTML=p.songs.map(i=>songs.find(s=>s.id==i)).filter(Boolean).map(s=>`<div class="r" onclick="rmt('${s.id}')"><div class="t"${bg(s)}></div><div style="flex:1"><b>${esc(s.title)}</b><small>${esc(s.artist)}</small></div><span class="on2">${rsel.has(s.id)?'✓':'○'}</span></div>`).join('')||'<small>Esta playlist está vacía.</small>';$('#rmb').textContent='Quitar ('+rsel.size+')'}
+function rmt(id){rsel.has(id)?rsel.delete(id):rsel.add(id);rmr()}
+async function rmGo(){const p=pls.find(x=>x.id==pid);if(!p||!rsel.size)return toast('Elige al menos una canción');const ids=[...rsel];
+try{await api(`/rest/v1/playlist_songs?playlist_id=eq.${pid}&song_id=in.(${ids.join(',')})`,{method:'DELETE'});p.songs=p.songs.filter(x=>!rsel.has(x));svp();$('#rm').hidden=true;rsel=new Set();render();toast('Se quitaron '+ids.length+' de la playlist')}catch(e){toast('Se necesita Internet')}}
 addEventListener('online',sync);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 if(S)start();
